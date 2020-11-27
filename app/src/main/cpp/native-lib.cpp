@@ -1,10 +1,14 @@
 #include <jni.h>
 #include <string>
+#include "AudioControl.h"
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_tck_jni_opensl_MainActivity_stringFromJNI(
-        JNIEnv* env,
-        jobject /* this */) {
-    std::string hello = "Hello from C++";
-    return env->NewStringUTF(hello.c_str());
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_tck_jni_opensl_AudioControl_nativePlay(JNIEnv *env, jobject thiz, jstring _url) {
+
+    char const *url = env->GetStringUTFChars(_url, nullptr);
+    auto *audioControl = new AudioControl();
+    audioControl->setDadaSource(url);
+    env->ReleaseStringUTFChars(_url, url);
 }
