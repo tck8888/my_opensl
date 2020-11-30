@@ -1,5 +1,8 @@
 package com.tck.jni.opensl
 
+import android.util.Log
+import java.io.File
+
 /**
  *<p>description:</p>
  *<p>created on: 2020/11/27 15:46</p>
@@ -15,6 +18,8 @@ class AudioControl {
 
 
     fun play(url: String) {
+        Log.d("tck6666",url)
+        Log.d("tck6666",File(url).length().toString())
         nativePlay(url)
     }
 

@@ -9,6 +9,7 @@
 #include <string>
 #include "AndroidLog.h"
 
+#define OUT_BUFFER_SIZE 44100 * 2 * 2
 extern "C"
 {
 #include <SLES/OpenSLES.h>
@@ -17,31 +18,27 @@ extern "C"
 
 class AudioControl {
 
-    friend void getPcmData(void **pcm);
 
 public:
-    char *url = NULL;
-    FILE *pcmFile = NULL;
+    char *url = nullptr;
+    FILE *pcmFile = nullptr;
+
+    uint8_t *out_buffer = nullptr;
     // 引擎接口
-    SLObjectItf engineObject = NULL;
-    SLEngineItf engineEngine = NULL;
+    SLObjectItf engineObject = nullptr;
+    SLEngineItf engineEngine = nullptr;
 
     //混音器
-    SLObjectItf outputMixObject = NULL;
-    SLEnvironmentalReverbItf outputMixEnvironmentalReverb = NULL;
-    SLEnvironmentalReverbSettings reverbSettings = SL_I3DL2_ENVIRONMENT_PRESET_STONECORRIDOR;
+    SLObjectItf outputMixObject = nullptr;
 
     //pcm
-    SLObjectItf pcmPlayerObject = NULL;
-    SLPlayItf pcmPlayerPlay = NULL;
-    SLVolumeItf pcmPlayerVolume = NULL;
-
+    SLObjectItf pcmPlayerObject = nullptr;
+    SLPlayItf pcmPlayerPlay = nullptr;
 
     //缓冲器队列接口
     SLAndroidSimpleBufferQueueItf pcmBufferQueue;
 
 public:
-    AudioControl();
 
     ~AudioControl();
 
@@ -49,6 +46,9 @@ public:
     void setDadaSource(const char *_url);
 
     void start();
+
+    void getPcmData(void **pcm);
+
 };
 
 
