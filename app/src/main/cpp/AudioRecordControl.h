@@ -5,54 +5,31 @@
 #ifndef MY_OPENSL_AUDIORECORDCONTROL_H
 #define MY_OPENSL_AUDIORECORDCONTROL_H
 
-#define RECORD_BUFFER_QUEUE_NUM 2
-#define RECORDER_FRAMES 2048
 
-#include "cstring"
 #include <stdio.h>
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 #include "AndroidLog.h"
+#include "RecordBuffer.h"
+
 
 class AudioRecordControl {
 
 private:
-    int      mIndex=0;
-    short    *mRecordBuffs[2];
-    unsigned mRecordBufferSize=RECORDER_FRAMES;
+    SLObjectItf engineObject = nullptr;//引擎对象
+    SLEngineItf engineEngine = nullptr; //引擎接口
 
-    FILE *mFile = nullptr;
-    bool mIsRecording = false;
-
-    SLObjectItf mEngineObj = nullptr;
-    SLEngineItf mEngineInterface = nullptr;
-
-    SLObjectItf mRecorderObj = nullptr;
-    SLRecordItf mRecorderInterface = nullptr;
-
-    SLAndroidSimpleBufferQueueItf mBufferQueue= nullptr;
+    SLObjectItf recorderObject = nullptr;//录制对象，这个对象我们从里面获取了2个接口
 
 public:
-    AudioRecordControl();
+    SLRecordItf recorderRecorder = nullptr;                        //录制接口
+    RecordBuffer *recordBuffer;
+    FILE *pcmFile;
+    bool finished;
 
-    ~AudioRecordControl();
+    void startRecord(const char *pcmPath, int channels = 2);
 
-public:
-    bool start();
-
-    void stop();
-
-    void setDataSource(const char *string);
-
-private:
-    bool initEngine();
-
-    bool initRecorder();
-
-    void release();
-
-    static void recorderCallback(SLAndroidSimpleBufferQueueItf queue, void *context) ;
-
+    void stopRecord();
 };
 
 

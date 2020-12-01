@@ -28,8 +28,7 @@ Java_com_tck_jni_opensl_AudioControl_nativeStartRecordAudio(JNIEnv *env, jobject
                                                             jlong native_handle, jstring _url) {
     const char *url = env->GetStringUTFChars(_url, nullptr);
     auto audioRecordControl = reinterpret_cast<AudioRecordControl *>(native_handle);
-    audioRecordControl->setDataSource(url);
-    audioRecordControl->start();
+    audioRecordControl->startRecord(url);
     env->ReleaseStringUTFChars(_url, url);
 }
 
@@ -40,6 +39,6 @@ Java_com_tck_jni_opensl_AudioControl_nativeStopRecordAudio(JNIEnv *env, jobject 
 
     auto audioRecordControl = reinterpret_cast<AudioRecordControl *>(native_handle);
     if (audioRecordControl) {
-        audioRecordControl->stop();
+        audioRecordControl->stopRecord();
     }
 }

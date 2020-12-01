@@ -4,246 +4,140 @@
 
 #include "AudioRecordControl.h"
 
-AudioRecordControl::AudioRecordControl() {
+//录制大小设为4096
+#define RECORDER_FRAMES (2048)
+static unsigned recorderSize = RECORDER_FRAMES * 2;
 
-    this->mRecordBuffs[0] = new short[mRecordBufferSize]();
-   this->mRecordBuffs[1] = new short[mRecordBufferSize]();
+static void RecordCallback(SLAndroidSimpleBufferQueueItf bufferQueue, void *context) {
+    LOGI("录制大小: %d", recorderSize);
+    auto recorder = reinterpret_cast<AudioRecordControl *>(context);
+
+    if (NULL != recorder->recordBuffer) {
+        fwrite(recorder->recordBuffer->getNowBuffer(), 1, recorderSize, recorder->pcmFile);
+    }
+    if (recorder->finished) {
+        (*recorder->recorderRecorder)->SetRecordState(recorder->recorderRecorder,
+                                                      SL_RECORDSTATE_STOPPED);
+        //刷新缓冲区后，关闭流
+        fclose(recorder->pcmFile);
+        //释放内存
+        delete recorder->recordBuffer;
+        recorder->recordBuffer = NULL;
+        LOGI("停止录音");
+    } else{
+        (*bufferQueue)->Enqueue(bufferQueue, recorder->recordBuffer->getRecordBuffer(),
+                                recorderSize);
+    }
 }
 
-AudioRecordControl::~AudioRecordControl() {
-    release();
-}
+void
+AudioRecordControl::startRecord(const char *pcmPath, int channels) {
+    //打开输出文件
+    pcmFile = fopen(pcmPath, "w");
+    recordBuffer = new RecordBuffer(RECORDER_FRAMES * 2);
 
-void AudioRecordControl::setDataSource(const char *_url) {
-    mFile = fopen(_url, "w");
-}
-
-bool AudioRecordControl::start() {
-
-    if (mIsRecording) return true;
-    if (!mRecorderInterface) {
-        if (!initRecorder()) {
-            LOGE("init recorder failed");
-            return false;
-        }
-    }
-
-    if (!mFile) {
-        LOGE("record file open failed");
-        return false;
-    }
-
-    SLresult ret;
-
-    ret = (*mRecorderInterface)->SetRecordState(mRecorderInterface, SL_RECORDSTATE_STOPPED);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mRecorderInterface stop record state failed");
-        return false;
-    }
-    ret = (*mBufferQueue)->Clear(mBufferQueue);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mBufferQueue clear bufferQueue failed");
-        return false;
-    }
-
-    ret = (*mBufferQueue)->Enqueue(mBufferQueue, mRecordBuffs[mIndex],
-                                   mRecordBufferSize * sizeof(short));
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mBufferQueue enqueue buffer failed");
-        return false;
-    }
-    ret = (*mRecorderInterface)->SetRecordState(mRecorderInterface, SL_RECORDSTATE_RECORDING);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mRecorderInterface start record state failed");
-        return false;
-    }
-
-    mIsRecording = true;
-    LOGI("audioRecorder start recording...");
-    return true;
-}
-
-bool AudioRecordControl::initEngine()
-{
-
-    SLresult ret;
-
-    ret = slCreateEngine(&mEngineObj, 0, nullptr, 0, nullptr, nullptr);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("slCreateEngine obj failed");
-        return false;
-    }
-
-    ret = (*mEngineObj)->Realize(mEngineObj, SL_BOOLEAN_FALSE);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("sl engineObj realize failed");
-        return false;
-    }
-
-    ret = (*mEngineObj)->GetInterface(mEngineObj, SL_IID_ENGINE, &mEngineInterface);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("sl get engine interface failed");
-        return false;
-    }
-
-    LOGI("init engine success");
-    return true;
-}
-
-void AudioRecordControl::recorderCallback(SLAndroidSimpleBufferQueueItf queue, void *context) {
-    if (context == nullptr) {
-        LOGE("SLAudioRecorder recorderCallback argus is null");
+    SLresult result;
+    //1. 调用全局方法创建一个引擎对象(OpenSL ES唯一入口)
+    result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
+    if (SL_RESULT_SUCCESS != result) {
         return;
     }
-    auto *recorder = reinterpret_cast<AudioRecordControl *>(context);
-    int ret = fwrite(recorder->mRecordBuffs[recorder->mIndex], sizeof(short),
-                     recorder->mRecordBufferSize, recorder->mFile);
-
-    if (ret < 0) {
-        LOGE("SLAudioRecorder recorderCallback write failed");
+    //2. 实例化这个对象
+    result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
+    if (SL_RESULT_SUCCESS != result) {
         return;
     }
-    if (recorder->mIsRecording) {
-        recorder->mIndex = 1 - recorder->mIndex;
-        (*recorder->mBufferQueue)->Enqueue(recorder->mBufferQueue,
-                                           recorder->mRecordBuffs[recorder->mIndex],
-                                           recorder->mRecordBufferSize * sizeof(short));
-    } else {
-        (*recorder->mRecorderInterface)->SetRecordState(recorder->mRecorderInterface,
-                                                        SL_RECORDSTATE_STOPPED);
-        fclose(recorder->mFile);
+    //3. 从这个对象里面获取引擎接口
+    result = (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
+    if (SL_RESULT_SUCCESS != result) {
+        return;
     }
-}
-
-bool AudioRecordControl::initRecorder() {
-    if (!mEngineInterface) {
-        if (!initEngine()) {
-            LOGE("init engine failed");
-            return false;
-        }
-    }
-
-    SLresult ret;
-
-    // Configuration the recorder's audio data source
-    SLDataLocator_IODevice device = {
-            SL_DATALOCATOR_IODEVICE,
-            SL_IODEVICE_AUDIOINPUT,
-            SL_DEFAULTDEVICEID_AUDIOINPUT,
-            nullptr // Must be Null if deviceID parameter is to be used.
+    //4. 设置IO设备(麦克风)
+    SLDataLocator_IODevice ioDevice = {
+            SL_DATALOCATOR_IODEVICE,         //类型
+            SL_IODEVICE_AUDIOINPUT,          //device类型 选择了音频输入类型
+            SL_DEFAULTDEVICEID_AUDIOINPUT,   //deviceID
+            NULL                             //device实例
     };
 
-    SLDataSource dataSource = {&device,
-                               nullptr}; // This parameter is ignored if pLocator is SLDataLocator_IODevice.
-
-    // Configuration the recorder's audio data save way.
-    SLDataLocator_AndroidSimpleBufferQueue queue = {
-            SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE,
-            RECORD_BUFFER_QUEUE_NUM
+    SLDataSource dataSource = {
+            &ioDevice,                      //SLDataLocator_IODevice配置输入
+            NULL                             //输入格式,采集的并不需要
     };
 
-    // Audio Format: PCM
-    // Audio Channels: 2
-    // SampleRate: 44100
-    // SampleFormat: 16bit
-    // Endian: Little Endian
+    //5. 设置输出buffer队列
+    SLDataLocator_AndroidSimpleBufferQueue buffer_queue = {
+            SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE,    //类型 这里只能是这个常量
+            2                                           //buffer的数量
+    };
+    //6. 设置输出数据的格式
     SLDataFormat_PCM pcmFormat = {
-            SL_DATAFORMAT_PCM,
-            2,
-            SL_SAMPLINGRATE_44_1,
-            SL_PCMSAMPLEFORMAT_FIXED_16,
-            SL_PCMSAMPLEFORMAT_FIXED_16,
-            SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT,//立体声（前左前右）
-            SL_BYTEORDER_LITTLEENDIAN
+            SL_DATAFORMAT_PCM,                             //输出PCM格式的数据
+            (SLuint32) channels,                                  //输出的声道数量
+            SL_SAMPLINGRATE_44_1,                          //输出的采样频率，这里是44100Hz
+            SL_PCMSAMPLEFORMAT_FIXED_16,                   //输出的采样格式，这里是16bit
+            SL_PCMSAMPLEFORMAT_FIXED_16,                   //一般来说，跟随上一个参数
+            SL_SPEAKER_FRONT_LEFT |
+            SL_SPEAKER_FRONT_RIGHT,  //双声道配置，如果单声道可以用 SL_SPEAKER_FRONT_CENTER
+            SL_BYTEORDER_LITTLEENDIAN                      //PCM数据的大小端排列
     };
 
-    SLDataSink dataSink = {&queue, &pcmFormat};
+    SLDataSink audioSink = {
+            &buffer_queue,                   //SLDataFormat_PCM配置输出
+            &pcmFormat                      //输出数据格式
+    };
 
-    // Configure the interface that the recorder needs to support.
-    SLInterfaceID ids[]          = {SL_IID_ANDROIDSIMPLEBUFFERQUEUE};
-    SLboolean     ids_required[] = {SL_BOOLEAN_TRUE};
-    SLuint32      numInterfaces  = 2;
+    SLAndroidSimpleBufferQueueItf recorderBufferQueue; //Buffer接口
 
-    // Create the audio recorder.
-    ret = (*mEngineInterface)->CreateAudioRecorder(mEngineInterface, &mRecorderObj,
-                                                   &dataSource,
-                                                   &dataSink,
-                                                   numInterfaces,
-                                                   ids,
-                                                   ids_required);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("CreateAudioRecorder() failed");
-        return false;
+    //7. 创建录制的对象
+    const SLInterfaceID id[1] = {SL_IID_ANDROIDSIMPLEBUFFERQUEUE};
+    const SLboolean req[1] = {SL_BOOLEAN_TRUE};
+    result = (*engineEngine)->CreateAudioRecorder(engineEngine,        //引擎接口
+                                                  &recorderObject,   //录制对象地址，用于传出对象
+                                                  &dataSource,          //输入配置
+                                                  &audioSink,         //输出配置
+                                                  1,                  //支持的接口数量
+                                                  id,                 //具体的要支持的接口
+                                                  req                 //具体的要支持的接口是开放的还是关闭的
+    );
+    if (SL_RESULT_SUCCESS != result) {
+        return;
+    }
+    //8. 实例化这个录制对象
+    result = (*recorderObject)->Realize(recorderObject, SL_BOOLEAN_FALSE);
+    if (SL_RESULT_SUCCESS != result) {
+        return;
+    }
+    //9. 获取录制接口
+    result = (*recorderObject)->GetInterface(recorderObject, SL_IID_RECORD, &recorderRecorder);
+    if (SL_RESULT_SUCCESS != result) {
+        return;
+    }
+    //10. 获取Buffer接口
+    result = (*recorderObject)->GetInterface(recorderObject, SL_IID_ANDROIDSIMPLEBUFFERQUEUE,
+                                             &recorderBufferQueue);
+    if (SL_RESULT_SUCCESS != result) {
+        return;
+    }
+    finished = false;
+    result = (*recorderBufferQueue)->Enqueue(recorderBufferQueue, recordBuffer->getRecordBuffer(),
+                                             recorderSize);
+    if (SL_RESULT_SUCCESS != result) {
+        return;
     }
 
-    ret = (*mRecorderObj)->Realize(mRecorderObj, SL_BOOLEAN_FALSE);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mRecorderObj realize failed");
-        return false;
-    }
+    result = (*recorderBufferQueue)->RegisterCallback(recorderBufferQueue, RecordCallback,
+                                                      this);
 
-    ret = (*mRecorderObj)->GetInterface(mRecorderObj, SL_IID_RECORD, &mRecorderInterface);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mRecorderObj get SL_IID_RECORD interface failed");
-        return false;
+    if (SL_RESULT_SUCCESS != result) {
+        return;
     }
-
-    ret = (*mRecorderObj)->GetInterface(mRecorderObj, SL_IID_ANDROIDSIMPLEBUFFERQUEUE,
-                                        &mBufferQueue);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("mRecorderObj get simpleBufferQueue interface failed");
-        return false;
-    }
-
-    ret = (*mBufferQueue)->RegisterCallback(mBufferQueue, recorderCallback, this);
-    if (ret != SL_RESULT_SUCCESS) {
-        LOGE("register read pcm data callback failed");
-        return false;
-    }
-
-    LOGI("init recorder success");
-    return true;
+    //11. 开始录音
+    (*recorderRecorder)->SetRecordState(recorderRecorder, SL_RECORDSTATE_RECORDING);
 }
 
-void AudioRecordControl::stop() {
-    mIsRecording = false;
+void AudioRecordControl::stopRecord() {
+    if (NULL != recorderRecorder) {
+        finished = true;
+    }
 }
-
-void AudioRecordControl::release() {
-    if (mRecorderObj) {
-        (*mRecorderInterface)->SetRecordState(mRecorderInterface, SL_RECORDSTATE_STOPPED);
-        (*mRecorderObj)->Destroy(mRecorderObj);
-        mRecorderObj = nullptr;
-        mRecorderInterface = nullptr;
-        mBufferQueue = nullptr;
-    }
-
-    if (mEngineObj) {
-        (*mEngineObj)->Destroy(mEngineObj);
-        mEngineObj = nullptr;
-        mEngineInterface = nullptr;
-    }
-
-    if (mRecordBuffs[0]) {
-        delete mRecordBuffs[0];
-        mRecordBuffs[0] = nullptr;
-    }
-
-    if (mRecordBuffs[1]) {
-        delete mRecordBuffs[1];
-        mRecordBuffs[1] = nullptr;
-    }
-
-    if (mFile) {
-        fclose(mFile);
-    }
-
-    mIsRecording = false;
-    mIndex = 0;
-
-    LOGI("audioRecorder stopped");
-}
-
-
-
-
