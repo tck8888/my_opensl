@@ -10,19 +10,41 @@ import java.io.File
  *
  */
 class AudioControl {
+
     companion object {
         init {
             System.loadLibrary("native-lib")
         }
     }
 
+    private val nativeHandle: Long
+
+    init {
+       nativeHandle = nativeInit()
+    }
+
 
     fun play(url: String) {
-        Log.d("tck6666",url)
-        Log.d("tck6666",File(url).length().toString())
+        Log.d("tck6666", url)
+        Log.d("tck6666", File(url).length().toString())
         nativePlay(url)
     }
 
-    private external fun nativePlay(url: String);
+    //https://www.cnblogs.com/yongdaimi/p/12426966.html
+    fun startRecordAudio(url: String) {
+        nativeStartRecordAudio(nativeHandle, url)
+    }
+
+    fun stopRecordAudio() {
+        nativeStopRecordAudio(nativeHandle);
+    }
+
+    private external fun nativePlay(url: String)
+
+    private external fun nativeInit(): Long
+
+    private external fun nativeStartRecordAudio(nativeHandle: Long, url: String)
+
+    private external fun nativeStopRecordAudio(nativeHandle: Long)
 
 }

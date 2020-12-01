@@ -4,11 +4,33 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="15dp"
     tools:context=".MainActivity">
 
-  <Button
-      android:layout_width="wrap_content"
-      android:id="@+id/btn_start_play"
-      android:text="开始播放"
-      android:layout_height="wrap_content"/>
+    <Button
+        android:id="@+id/btn_start_play"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="开始播放" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_start_record"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="开始录制" />
+
+        <Button
+            android:id="@+id/btn_stop_record"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="15dp"
+            android:text="停止录制" />
+
+    </LinearLayout>
 </LinearLayout>

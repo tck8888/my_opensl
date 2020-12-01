@@ -102,14 +102,6 @@ void AudioControl::start() {
         return;
     }
 
-//    result = (*outputMixObject)->GetInterface(outputMixObject, SL_IID_ENVIRONMENTALREVERB,
-//                                              &outputMixEnvironmentalReverb);
-//    if (SL_RESULT_SUCCESS == result) {
-//        result = (*outputMixEnvironmentalReverb)->SetEnvironmentalReverbProperties(
-//                outputMixEnvironmentalReverb, &reverbSettings);
-//        (void) result;
-//    }
-
     // 第三步--------------------------------------------
     // 创建播放器
     SLDataLocator_AndroidSimpleBufferQueue android_queue = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE,
