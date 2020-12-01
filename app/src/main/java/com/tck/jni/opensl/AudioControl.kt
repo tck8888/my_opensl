@@ -36,7 +36,7 @@ class AudioControl {
     }
 
     fun stopRecordAudio() {
-        nativeStopRecordAudio(nativeHandle);
+        nativeStopRecordAudio(nativeHandle)
     }
 
     private external fun nativePlay(url: String)

@@ -13,10 +13,6 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    companion object {
-        val permissions = arrayOf(Manifest.permission.RECORD_AUDIO)
-    }
-
     private lateinit var binding: ActivityMainBinding
 
     private lateinit var audioControl: AudioControl
@@ -29,7 +25,7 @@ class MainActivity : AppCompatActivity() {
         audioControl = AudioControl()
 
         binding.btnStartPlay.setOnClickListener {
-           // audioControl.play("${cacheDir}${File.separator}mydream.pcm")
+            // audioControl.play("${cacheDir}${File.separator}mydream.pcm")
             audioControl.play("${cacheDir}${File.separator}1.pcm")
         }
 
@@ -52,7 +48,20 @@ class MainActivity : AppCompatActivity() {
         binding.btnStopRecord.setOnClickListener {
             audioControl.stopRecordAudio()
         }
+
+        binding.btnStartPlayPcmUseJava.setOnClickListener {
+            if (audioTrackManager == null) {
+                audioTrackManager = AudioTrackManager()
+                audioTrackManager?.setDataSource("${cacheDir}${File.separator}mydream.pcm")
+            }
+            audioTrackManager?.startPlay()
+        }
+        binding.btnStopPlayPcmUseJava.setOnClickListener {
+            audioTrackManager?.stopPlay()
+        }
     }
+
+    private var audioTrackManager: AudioTrackManager? = null
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
