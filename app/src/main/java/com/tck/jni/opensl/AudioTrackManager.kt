@@ -112,7 +112,7 @@ class AudioTrackManager {
                             if (readCount != 0 && readCount != -1) {
                                 audioTrack.write(tempBuffer, 0, readCount)
                             }
-                            Log.d("tck6666", "Play: " + readCount)
+                            Log.d("tck6666", "play: " + readCount)
                         }
                     }
                 }

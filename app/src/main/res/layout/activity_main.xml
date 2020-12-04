@@ -53,4 +53,11 @@
             android:layout_height="wrap_content"
             android:text="使用java 停止播放 pcm" />
     </LinearLayout>
+
+    <Button
+        android:textAllCaps="false"
+        android:id="@+id/btn_record_audio_use_java"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="使用android原生录制音频" />
 </LinearLayout>

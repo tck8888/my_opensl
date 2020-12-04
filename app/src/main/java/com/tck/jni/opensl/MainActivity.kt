@@ -1,12 +1,14 @@
 package com.tck.jni.opensl
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import com.tck.jni.audiorecord.AudioRecordTrainActivity
 import com.tck.jni.opensl.databinding.ActivityMainBinding
 import java.io.File
 import java.util.*
@@ -58,6 +60,13 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnStopPlayPcmUseJava.setOnClickListener {
             audioTrackManager?.stopPlay()
+        }
+
+
+        binding.btnRecordAudioUseJava.setOnClickListener {
+
+            startActivity(Intent(this, AudioRecordTrainActivity::class.java))
+
         }
     }
 
